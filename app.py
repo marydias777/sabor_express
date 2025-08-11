@@ -18,7 +18,7 @@ def exibir_opcoes():
     print('1. Cadastrar restaurante')
     print('2. Listar restaurante')
     print('3. Alterar estado do restaurante')
-    print('4. Sair\n')1
+    print('4. Sair\n')
     
 
 def finalizar_app():
