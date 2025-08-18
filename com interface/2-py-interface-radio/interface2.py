@@ -66,7 +66,7 @@ radio_agua = tk.Radiobutton(janela, text="Água", variable=var_radio, value="Ág
 radio_cha = tk.Radiobutton(janela, text="Chá", variable=var_radio, value="Chá")
 
 # .pack (Método do Tkinter que deixa as opções visíveis)
-radio_drink.pack()
+radio_drin.pack()
 radio_cafe.pack()
 radio_cha.pack()
 radio_suco.pack()
