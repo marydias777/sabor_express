@@ -1,0 +1,153 @@
+import customtkinter as ctk
+import sqlite3
+from tkinter import messagebox
+
+# ==========================================================
+# Configuração inicial
+# ==========================================================
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
+
+DB_NAME = "financas.db"
+
+# ==========================================================
+# Banco de Dados
+# ==========================================================
+def criar_tabela():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transacoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT NOT NULL,
+            descricao TEXT,
+            valor REAL NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def inserir_transacao(tipo, descricao, valor):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO transacoes (tipo, descricao, valor) VALUES (?, ?, ?)",
+                   (tipo, descricao, valor))
+    conn.commit()
+    conn.close()
+
+
+def listar_transacoes():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM transacoes ORDER BY id DESC")
+    dados = cursor.fetchall()
+    conn.close()
+    return dados
+
+
+def excluir_transacao(transacao_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM transacoes WHERE id=?", (transacao_id,))
+    conn.commit()
+    conn.close()
+
+
+def calcular_saldo():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(CASE WHEN tipo='Receita' THEN valor ELSE -valor END) FROM transacoes")
+    saldo = cursor.fetchone()[0]
+    conn.close()
+    return saldo if saldo else 0.0
+
+
+# ==========================================================
+# Aplicação (UI)
+# ==========================================================
+class FinanceApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("💰 Gerenciador de Despesas Pessoais")
+        self.geometry("700x500")
+
+        # Frame principal
+        self.frame = ctk.CTkFrame(self)
+        self.frame.pack(pady=10, padx=10, fill="both", expand=True)
+
+        # Campos de entrada
+        self.tipo_var = ctk.StringVar(value="Receita")
+        self.entry_valor = ctk.CTkEntry(self.frame, placeholder_text="Valor (ex: 100.50)")
+        self.entry_desc = ctk.CTkEntry(self.frame, placeholder_text="Descrição")
+
+        self.option_tipo = ctk.CTkOptionMenu(self.frame, values=["Receita", "Despesa"], variable=self.tipo_var)
+        self.btn_add = ctk.CTkButton(self.frame, text="Adicionar", command=self.adicionar_transacao)
+
+        self.option_tipo.grid(row=0, column=0, padx=5, pady=5)
+        self.entry_valor.grid(row=0, column=1, padx=5, pady=5)
+        self.entry_desc.grid(row=0, column=2, padx=5, pady=5)
+        self.btn_add.grid(row=0, column=3, padx=5, pady=5)
+
+        # Lista de transações
+        self.transacoes_listbox = ctk.CTkTextbox(self.frame, width=650, height=300)
+        self.transacoes_listbox.grid(row=1, column=0, columnspan=4, padx=10, pady=10)
+
+        # Botão de exclusão
+        self.entry_id_delete = ctk.CTkEntry(self.frame, placeholder_text="ID para excluir")
+        self.btn_delete = ctk.CTkButton(self.frame, text="Excluir", fg_color="red", command=self.excluir_transacao)
+
+        self.entry_id_delete.grid(row=2, column=0, padx=5, pady=5)
+        self.btn_delete.grid(row=2, column=1, padx=5, pady=5)
+
+        # Saldo atual
+        self.label_saldo = ctk.CTkLabel(self.frame, text="Saldo: R$ 0,00", font=("Arial", 18, "bold"))
+        self.label_saldo.grid(row=3, column=0, columnspan=4, pady=10)
+
+        # Carregar dados iniciais
+        self.atualizar_interface()
+
+    def adicionar_transacao(self):
+        try:
+            valor = float(self.entry_valor.get().replace(",", "."))
+            descricao = self.entry_desc.get()
+            tipo = self.tipo_var.get()
+            if valor <= 0:
+                messagebox.showerror("Erro", "O valor deve ser positivo.")
+                return
+
+            inserir_transacao(tipo, descricao, valor)
+            self.entry_valor.delete(0, "end")
+            self.entry_desc.delete(0, "end")
+            self.atualizar_interface()
+        except ValueError:
+            messagebox.showerror("Erro", "Digite um valor numérico válido.")
+
+    def excluir_transacao(self):
+        try:
+            transacao_id = int(self.entry_id_delete.get())
+            excluir_transacao(transacao_id)
+            self.entry_id_delete.delete(0, "end")
+            self.atualizar_interface()
+        except ValueError:
+            messagebox.showerror("Erro", "Digite um ID válido.")
+
+    def atualizar_interface(self):
+        self.transacoes_listbox.delete("1.0", "end")
+        transacoes = listar_transacoes()
+        for t in transacoes:
+            id_, tipo, desc, valor = t
+            sinal = "+" if tipo == "Receita" else "-"
+            cor = "green" if tipo == "Receita" else "red"
+            self.transacoes_listbox.insert("end", f"ID {id_} | {tipo} | {desc} | {sinal} R$ {valor:,.2f}\n")
+
+        saldo = calcular_saldo()
+        cor_saldo = "green" if saldo >= 0 else "red"
+        self.label_saldo.configure(text=f"Saldo: R$ {saldo:,.2f}", text_color=cor_saldo)
+
+
+if __name__ == "__main__":
+    criar_tabela()
+    app = FinanceApp()
+    app.mainloop()
